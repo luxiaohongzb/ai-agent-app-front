@@ -1,19 +1,19 @@
-# syntax=docker/dockerfile:1
+
 
 # -------- Build stage --------
-FROM node:20-alpine AS builder
+FROM node:latest AS builder
 WORKDIR /app
 
 # Install deps (use lockfile for reproducible builds)
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 # Copy source and build
 COPY . .
 RUN npm run build
 
 # -------- Runtime stage --------
-FROM nginx:1.27-alpine AS runner
+FROM nginx:latest AS runner
 
 # Clean default web dir and copy built assets
 RUN rm -rf /usr/share/nginx/html/*

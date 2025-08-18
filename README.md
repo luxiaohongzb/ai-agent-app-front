@@ -52,33 +52,34 @@ npm run build
 
 构建产物输出到 dist/ 目录。
 
-## 使用 Docker 部署
+## 使用 Docker 部署（含国内镜像源支持）
 
-本仓库已包含以下文件：
-- Dockerfile：多阶段构建，Node 镜像打包，Nginx 提供静态资源与 SPA 路由。
-- nginx.conf：Nginx 配置，支持前端路由回退与静态资源缓存。
-- .dockerignore：减小构建上下文。
+仓库包含以下文件：
+- Dockerfile：多阶段构建，Node 镜像打包，Nginx 提供静态资源与 SPA 路由；支持指定 npm 国内镜像源
+- nginx.conf：Nginx 配置，支持前端路由回退与静态资源缓存
+- .dockerignore：减小构建上下文
 
-步骤：
-
-1) 确认 Docker Desktop 已启动（Windows 必须先打开 Docker Desktop）。
-2) 在项目根目录构建镜像：
+构建镜像（默认使用 npmmirror 源）：
 
 ```bash
-docker build -t ai-agent-station-front:latest .
+docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com -t ai-agent-station-front:latest .
 ```
 
-3) 运行容器（将容器 80 端口映射到本机 8080）：
+若你在国内环境，这个命令可以显著加速依赖安装；如需自定义源，请替换 NPM_REGISTRY。
+
+运行容器：
 
 ```bash
 docker run -d --name ai-agent-station-front -p 8080:80 ai-agent-station-front:latest
 ```
 
-4) 打开浏览器访问：
+访问：
 
 ```
 http://localhost:8080
 ```
+
+注意：Windows 上请先启动 Docker Desktop，否则可能遇到 “open //./pipe/dockerDesktopLinuxEngine…” 的报错。
 
 ## 后端 API 地址与部署建议
 
