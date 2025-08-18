@@ -1,0 +1,506 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局字体和图标优化 */
+@layer base {
+  html {
+    font-size: 16px;
+  }
+  
+  body {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* 按钮字体优化 */
+  .ant-btn {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    height: auto !important;
+    padding: 8px 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  
+  .ant-btn-lg {
+    font-size: 16px !important;
+    padding: 12px 20px !important;
+  }
+  
+  .ant-btn-sm {
+    font-size: 13px !important;
+    padding: 6px 12px !important;
+  }
+  
+  /* 图标尺寸优化 */
+  .anticon {
+    font-size: 18px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: middle !important;
+  }
+  
+  .ant-btn .anticon {
+    font-size: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .ant-btn-lg .anticon {
+    font-size: 20px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .ant-btn-sm .anticon {
+    font-size: 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  /* 特殊位置图标优化 */
+  .ant-layout-header .anticon {
+    font-size: 18px !important;
+  }
+  
+  .ant-typography .anticon {
+    font-size: 20px !important;
+    margin-right: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+  }
+  
+  .ant-statistic .anticon {
+    font-size: 24px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .ant-menu .anticon {
+    font-size: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-right: 8px !important;
+  }
+  
+  .ant-dropdown .anticon {
+    font-size: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  
+  /* 标题字体优化 */
+  .ant-typography h1 {
+    font-size: 2rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .ant-typography h2 {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .ant-typography h3 {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .ant-typography h4 {
+    font-size: 1.125rem !important;
+    font-weight: 600 !important;
+  }
+  
+  /* 表格字体优化 */
+  .ant-table {
+    font-size: 14px !important;
+  }
+  
+  .ant-table-thead > tr > th {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+  
+  /* 输入框字体优化 */
+  .ant-input, .ant-select-selector {
+    font-size: 14px !important;
+  }
+  
+  /* 菜单字体优化 */
+  .ant-menu-item {
+    font-size: 14px !important;
+  }
+  
+  /* 标签字体优化 */
+  .ant-tag {
+    font-size: 12px !important;
+    padding: 2px 8px !important;
+  }
+  
+  /* 统计数字优化 */
+  .ant-statistic-content-value {
+    font-size: 2rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .ant-statistic-title {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.App {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* 深色模式样式 */
+.dark {
+  color-scheme: dark;
+}
+
+/* 浅色模式下的侧边栏和顶部栏 */
+.ant-layout-sider {
+  background: #ffffff !important;
+  border-right: 1px solid #e5e7eb !important;
+}
+
+.ant-layout-header {
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #f9fafb 100%) !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* 深色模式下的侧边栏和顶部栏 */
+.dark .ant-layout-sider {
+  background: #374151 !important;
+  border-right: 1px solid #4b5563 !important;
+}
+
+.dark .ant-layout-header {
+  background: #374151 !important;
+  border-bottom: 1px solid #4b5563 !important;
+}
+
+/* 输入框样式优化 */
+.ant-input {
+  border-radius: 12px !important;
+}
+
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #d1d5db !important;
+  box-shadow: 0 0 0 2px rgba(209, 213, 219, 0.2) !important;
+}
+
+/* 选择框样式优化 */
+.ant-select-selector {
+  border-radius: 8px !important;
+  border-color: #e5e7eb !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #d1d5db !important;
+  box-shadow: 0 0 0 2px rgba(209, 213, 219, 0.2) !important;
+}
+
+/* Ant Design 深色模式组件覆盖 */
+.dark .ant-layout {
+  background: #1f2937 !important;
+}
+
+.dark .ant-layout-content {
+  background: #1f2937 !important;
+}
+
+/* 深色模式下的菜单样式 */
+.dark .ant-menu {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-menu-item {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-menu-item:hover {
+  background: #4b5563 !important;
+  color: #ffffff !important;
+}
+
+.dark .ant-menu-item-selected {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* 深色模式下的文本颜色 */
+.dark {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-typography,
+.dark .ant-typography h1,
+.dark .ant-typography h2,
+.dark .ant-typography h3,
+.dark .ant-typography h4,
+.dark .ant-typography h5,
+.dark .ant-typography h6 {
+  color: #f3f4f6 !important;
+}
+
+/* 深色模式下的表格样式 */
+.dark .ant-table {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-table-thead > tr > th {
+  background: #4b5563 !important;
+  color: #f3f4f6 !important;
+  border-color: #6b7280 !important;
+}
+
+.dark .ant-table-tbody > tr > td {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-table-tbody > tr:hover > td {
+  background: #4b5563 !important;
+}
+
+
+
+.dark .ant-card {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-card .ant-card-body {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-input,
+.dark .ant-input-affix-wrapper {
+  background: #4b5563 !important;
+  border-color: #6b7280 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-input:focus,
+.dark .ant-input-affix-wrapper:focus,
+.dark .ant-input-affix-wrapper-focused {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .ant-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.dark .ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  background: #4b5563 !important;
+  border-color: #6b7280 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-select .ant-select-selection-placeholder {
+  color: #9ca3af !important;
+}
+
+.dark .ant-select .ant-select-selection-item {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .ant-select-dropdown {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-select-item {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.dark .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background: #4b5563 !important;
+}
+
+.dark .ant-btn {
+  border-color: #6b7280 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger) {
+  background: #4b5563 !important;
+}
+
+.dark .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):hover {
+  background: #6b7280 !important;
+  border-color: #9ca3af !important;
+}
+
+.dark .ant-modal-content {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-modal-header {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-modal-title {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-modal-footer {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-dropdown-menu {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-dropdown-menu-item {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-dropdown-menu-item:hover {
+  background: #4b5563 !important;
+}
+
+.dark .ant-list-item {
+  border-color: #4b5563 !important;
+}
+
+.dark .ant-empty-description {
+  color: #9ca3af !important;
+}
+
+.dark .ant-typography {
+  color: #f3f4f6 !important;
+}
+
+.dark .ant-typography.ant-typography-caption {
+  color: #9ca3af !important;
+}
+
+/* 滚动条深色模式 */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}

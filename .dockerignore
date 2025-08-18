@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+Dockerfile
+npm-debug.log
+.cache
+.vscode
+.eslintcache
+.env
+*local*
+*.local
+**/.DS_Store
+**/Thumbs.db
