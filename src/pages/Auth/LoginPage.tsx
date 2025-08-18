@@ -194,7 +194,7 @@ const LoginPage: React.FC = () => {
         {/* 提示信息 */}
         <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f3f4f6', borderRadius: '8px' }}>
           <Text style={{ fontSize: '12px', color: '#6b7280', display: 'block', textAlign: 'center' }}>
-            测试账号：admin / admin123
+            测试账号：admin / admin
           </Text>
         </div>
       </LoginCard>
