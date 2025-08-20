@@ -242,18 +242,24 @@ const ChatPage: React.FC = () => {
           style={{
             padding: '16px 20px',
             borderBottom: '1px solid #f0f0f0',
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            justifyContent: 'space-between',
             gap: 12,
             flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* 左侧占位，保证中间内容绝对居中 */}
+          <div />
+
+          {/* 中间：图标 + 标题，整体居中 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifySelf: 'center' }}>
             <Avatar size={28} icon={<RobotOutlined />} />
             <Title level={5} style={{ margin: 0 }}>AI Chat</Title>
           </div>
-          <div style={{ minWidth: 220 }}>
+
+          {/* 右侧：RAG 选择器，靠右对齐 */}
+          <div style={{ minWidth: 220, justifySelf: 'end' }}>
             <Select
               allowClear
               placeholder="选择RAG（可选）"

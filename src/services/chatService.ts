@@ -144,9 +144,26 @@ export const createChatStream = (params: {
         for (const line of lines) {
           try {
             if (line.startsWith('data: ')) {
-              const payload = line.slice(6);
-              const content = parseSSEDataPayload(payload);
-              if (content) onMessage(content);
+              const jsonData = JSON.parse(line.slice(6));
+              // 处理 OpenAI 格式的响应
+              if (
+                jsonData.choices &&
+                jsonData.choices[0] &&
+                jsonData.choices[0].delta
+              ) {
+                const content = jsonData.choices[0].delta.content;
+                if (content) {
+                  onMessage(content);
+                }
+              }
+              // 处理包含 completed 字段的 JSON 格式
+              else if (jsonData.completed !== undefined && jsonData.content) {
+                onMessage(JSON.stringify(jsonData));
+              }
+              // 处理其他 JSON 格式
+              else if (jsonData.content) {
+                onMessage(JSON.stringify(jsonData));
+              }
             }
           } catch (error) {
             if ((error as any).name === 'AbortError' || controller.signal.aborted) {
