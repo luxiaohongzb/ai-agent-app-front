@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import MainLayout from '../../components/layout/MainLayout';
-import { Box, Typography, Paper, TextField, IconButton } from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Button, Input, Typography, Avatar, Select, message } from 'antd';
+import { SendOutlined, RobotOutlined, ClearOutlined, PlusOutlined } from '@ant-design/icons';
 import MessageBubble from '../../components/chat/MessageBubble';
 import { ChatMessage } from '../../types';
+import apiClient from '../../services/api';
+import { getKnowledgeBases, parseSSEDataPayload } from '../../services/chatService';
+import { useChatPageStore } from '../../store/chatPageStore';
 
 // ChatPage 独立数据模型（不依赖 store）
 interface LocalMessage {
@@ -17,11 +19,26 @@ interface LocalMessage {
 const STORAGE_KEY = 'chatpage-local-messages';
 
 const ChatPage: React.FC = () => {
-  // 使用本地状态维护消息，确保与 store 历史消息完全解耦
-  const [messages, setMessages] = useState<LocalMessage[]>([]);
-  const [input, setInput] = useState('');
+  // 使用 store 管理消息与 RAG 选择
+  const messages = useChatPageStore((s) => s.messages);
+  const addMessage = useChatPageStore((s) => s.addMessage);
+  const updateMessage = useChatPageStore((s) => s.updateMessage);
+  const clearMessages = useChatPageStore((s) => s.clearMessages);
+  const selectedRagId = useChatPageStore((s) => s.selectedRagId);
+  const setSelectedRagId = useChatPageStore((s) => s.setSelectedRagId);
 
-  // 将本地消息映射为通用的 ChatMessage，供 MessageBubble 使用
+  // 输入与运行时控制仍用本地状态
+  const [input, setInput] = useState('');
+  const [knowledgeBases, setKnowledgeBases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const aiMsgIdRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const { Title, Paragraph } = Typography;
+  const { Option } = Select;
+
+  // 将 store 中的消息映射为通用的 ChatMessage，供 MessageBubble 使用
   const toBubbleMessage = (m: LocalMessage): ChatMessage => ({
     id: m.id,
     content: m.content,
@@ -30,108 +47,294 @@ const ChatPage: React.FC = () => {
     chatId: 'chatpage-local',
   });
 
-  // 首次加载时从 localStorage 恢复
+  // 首次加载时删除旧版 localStorage 残留（迁移清理）
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed as LocalMessage[]);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load ChatPage messages from localStorage:', e);
-    }
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
   }, []);
 
-  // 消息变更时写入 localStorage
+  // 加载知识库列表（RAG）
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch (e) {
-      console.warn('Failed to save ChatPage messages to localStorage:', e);
+    (async () => {
+      try {
+        const list = await getKnowledgeBases();
+        setKnowledgeBases(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error('Failed to load knowledge bases', e);
+      }
+    })();
+  }, []);
+
+  // 组件卸载时中断可能存在的流
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+    };
+  }, []);
+
+  // 消息变更时自动滚动到底部
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
-  const handleSend = () => {
+
+  // 发送并对接流式接口
+  const handleSend = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || loading) return;
 
-    const userMsg: LocalMessage = {
-      id: 'u-' + Date.now(),
-      role: 'user',
-      content: text,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    // 追加用户消息
+    addMessage({ role: 'user', content: text } as any);
     setInput('');
 
-    // 简单模拟一条 AI 回复，强调该页与 AgentPage 的数据不同且未对接 store
-    const aiMsg: LocalMessage = {
-      id: 'a-' + Date.now(),
-      role: 'ai',
-      content: '这是 ChatPage 的独立会话区域（未对接 store 历史消息），用于展示与 AgentPage 不同的数据流。',
-      timestamp: Date.now(),
-    };
-    setTimeout(() => setMessages((prev) => [...prev, aiMsg]), 150);
+    // 准备 AI 占位消息（先插入，再记住其 id 以便流式更新）
+    addMessage({ role: 'ai', content: '' } as any);
+    // 读取刚插入的最后一条消息作为占位 id
+    const last = useChatPageStore.getState().messages.slice(-1)[0];
+    aiMsgIdRef.current = last?.id || null;
+
+    // 若上一个流未结束，先中断
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+
+    setLoading(true);
+
+    try {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const { signal } = controller;
+
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: Record<string, string> = {
+        'Accept': 'text/event-stream',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const base = apiClient.defaults.baseURL; // e.g. http://localhost:8091/ai-agent-station/api/v1
+      const qs = new URLSearchParams({ aiAgentId: '2', message: text });
+      if (selectedRagId) qs.append('ragId', selectedRagId);
+      const url = `${base}/agent/chat_stream?${qs.toString()}`;
+
+      const resp = await fetch(url, { method: 'GET', headers, signal });
+      if (!resp.ok || !resp.body) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n');
+        for (let i = 0; i < parts.length - 1; i++) {
+          const line = parts[i].trim();
+          if (!line) continue;
+          try {
+            let content = '';
+            if (line.startsWith('data:')) {
+              const payload = line.replace(/^data:\s*/, '');
+              content = parseSSEDataPayload(payload);
+            } else if (line.startsWith('event:') || line.startsWith(':')) {
+              // 忽略注释或其他事件类型
+              continue;
+            } else {
+              content = line;
+            }
+            if (content && aiMsgIdRef.current) {
+              const st = useChatPageStore.getState();
+              const currentAi = st.messages.find(m => m.id === aiMsgIdRef.current);
+              const merged = (currentAi?.content || '') + content;
+              updateMessage(aiMsgIdRef.current, merged);
+            }
+          } catch (err) {
+            console.warn('parse line error:', err);
+          }
+        }
+        // 将尾部不完整行留在缓冲区
+        buffer = parts[parts.length - 1];
+      }
+
+      // 处理缓冲区残留
+      const tail = buffer.trim();
+      if (tail) {
+        let content = '';
+        if (tail.startsWith('data:')) {
+          const payload = tail.replace(/^data:\s*/, '');
+          content = parseSSEDataPayload(payload);
+        } else {
+          content = tail;
+        }
+        if (content && aiMsgIdRef.current) {
+          const st = useChatPageStore.getState();
+          const currentAi = st.messages.find(m => m.id === aiMsgIdRef.current);
+          const merged = (currentAi?.content || '') + content;
+          updateMessage(aiMsgIdRef.current, merged);
+        }
+      }
+
+      setLoading(false);
+      aiMsgIdRef.current = null;
+      abortRef.current = null;
+    } catch (error) {
+      console.error('Stream error:', error);
+      setLoading(false);
+      aiMsgIdRef.current = null;
+      abortRef.current = null;
+      message.error('发送失败或网络错误');
+      // 给出错误提示消息
+      addMessage({ role: 'ai', content: '网络错误，已结束本次会话。请稍后重试。' } as any);
+    }
   };
 
   const handleClear = () => {
-    setMessages([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    // 中断可能的流
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    clearMessages();
+  };
+
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
-    <MainLayout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2 }}>
-        {/* 头部说明区 */}
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 2, background: 'rgba(0,0,0,0.03)' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-            独立聊天（与 AgentPage 解耦）
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            本页面不读取或写入全局 store 的历史消息，展示的数据与智能体页（AgentPage）不同，用于并行的独立体验或数据源演示。
-          </Typography>
-        </Paper>
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        background: 'transparent',
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Card
+        bordered={false}
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: 0,
+          boxShadow: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+      >
+        {/* 顶部标题区 */}
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid #f0f0f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar size={28} icon={<RobotOutlined />} />
+            <Title level={5} style={{ margin: 0 }}>AI Chat</Title>
+          </div>
+          <div style={{ minWidth: 220 }}>
+            <Select
+              allowClear
+              placeholder="选择RAG（可选）"
+              value={selectedRagId}
+              onChange={(val) => setSelectedRagId(val || undefined)}
+              style={{ width: 260 }}
+              size="small"
+              options={undefined}
+            >
+              {knowledgeBases.map((kb: any) => (
+                <Option key={String(kb.id)} value={String(kb.id)}>
+                  {kb.ragName || kb.name || `RAG-${kb.id}`}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        </div>
 
-        {/* 消息列表 */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column' }}>
+        {/* 内容区 */}
+        <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: 16, minHeight: 0 }}>
           {messages.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              还没有消息，随便说点什么吧~（此处的数据不会出现在历史会话中）
-            </Typography>
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Card
+                bordered
+                style={{ width: 360, borderRadius: 14, textAlign: 'center' }}
+                bodyStyle={{ padding: 20 }}
+              >
+                <Avatar size={48} icon={<RobotOutlined />} style={{ background: '#f0f5ff', color: '#2f54eb' }} />
+                <Title level={5} style={{ marginTop: 12, marginBottom: 6 }}>AI Agent 正在待命</Title>
+                <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                  欢迎开启 AI 智能对话
+                </Paragraph>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setInput('你好')}>
+                  开始新的对话
+                </Button>
+              </Card>
+            </div>
           ) : (
-            messages.map((m) => (
-              <MessageBubble key={m.id} message={toBubbleMessage(m)} />
-            ))
+            messages.map((m) => <MessageBubble key={m.id} message={toBubbleMessage(m)} />)
           )}
-        </Box>
+        </div>
 
-        {/* 底部输入区（独立，不使用 MessageInput） */}
-        <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="在这里输入消息（不会写入 store 历史）"
+        {/* 底部输入区 */}
+        <div
+          style={{
+            padding: 12,
+            borderTop: '1px solid #f0f0f0',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-end',
+            flexWrap: 'wrap',
+            flexShrink: 0,
+          }}
+        >
+          <Input.TextArea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
+            onKeyDown={handleKeyDown}
+            placeholder="在这里输入消息（已写入 store 持久化）"
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            style={{ flex: 1, minWidth: 220 }}
+            disabled={loading}
           />
-          <IconButton color="primary" onClick={handleSend}>
-            <SendIcon />
-          </IconButton>
-          <IconButton onClick={handleClear} title="清空（仅清除本页本地状态）">
-            🧹
-          </IconButton>
-        </Paper>
-      </Box>
-    </MainLayout>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button type="primary" icon={<SendOutlined />} onClick={handleSend} loading={loading}>
+              发送
+            </Button>
+            <Button icon={<ClearOutlined />} onClick={handleClear} disabled={loading}>
+              清空
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 };
 

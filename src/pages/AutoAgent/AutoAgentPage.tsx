@@ -38,6 +38,9 @@ const AutoAgentPage: React.FC = () => {
   const thinkingMessagesRef = useRef<HTMLDivElement>(null);
   const resultMessagesRef = useRef<HTMLDivElement>(null);
   const streamCancelRef = useRef<{ cancel: () => void } | null>(null);
+  // 新增：流式超时定时器与超时阈值（毫秒）
+  const STREAM_TIMEOUT_MS = 20000;
+  const streamTimeoutRef = useRef<number | null>(null);
 
   // 从 store 获取状态和方法
   const currentChat = useStore((state) => state.currentChat);
@@ -75,6 +78,11 @@ const AutoAgentPage: React.FC = () => {
      if (streamCancelRef.current) {
        streamCancelRef.current.cancel();
        streamCancelRef.current = null;
+     }
+     // 同时清理超时定时器
+     if (streamTimeoutRef.current) {
+       clearTimeout(streamTimeoutRef.current);
+       streamTimeoutRef.current = null;
      }
     };
   }, [chatId, loadChat]);
@@ -189,6 +197,12 @@ const AutoAgentPage: React.FC = () => {
      streamCancelRef.current = null;
    }
     
+    // 清理可能残留的超时定时器
+    if (streamTimeoutRef.current) {
+      clearTimeout(streamTimeoutRef.current);
+      streamTimeoutRef.current = null;
+    }
+
     // 计算目标 chatId，如无则创建
     let targetChatId = currentChat?.id || chatId || undefined;
 
@@ -225,12 +239,29 @@ const AutoAgentPage: React.FC = () => {
       chatId: targetChatId,
     });
     
+    // 封装统一的超时设置函数（每次收到消息重置）
+    const setupStreamTimeout = () => {
+      if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
+      streamTimeoutRef.current = window.setTimeout(() => {
+        // 触发超时：取消流，提示错误，并结束会话
+        if (streamCancelRef.current) {
+          streamCancelRef.current.cancel();
+          streamCancelRef.current = null;
+        }
+        addAiMessage('error', 'network_timeout', '网络错误：请求超时，请稍后重试', 1, targetChatId);
+        setLoading(false);
+        message.error('网络连接超时');
+      }, STREAM_TIMEOUT_MS);
+    };
+    
     streamCancelRef.current = createChatStream({
       message: userMessage.content,
       aiAgentId: aiAgentId,
       sessionId: sessionId,
       maxStep: maxStep,
       onMessage: (content) => {
+        // 每次收到内容都重置超时计时器
+        setupStreamTimeout();
         try {
           const data = JSON.parse(content);
           if (data.type && (data.type === 'execution' || data.type === 'analysis' || 
@@ -247,14 +278,29 @@ const AutoAgentPage: React.FC = () => {
         }
       },
       onError: (error) => {
+        // 出错时清理超时定时器
+        if (streamTimeoutRef.current) {
+          clearTimeout(streamTimeoutRef.current);
+          streamTimeoutRef.current = null;
+        }
         console.error('Stream error:', error);
+        // 在对话中提示网络错误
+        addAiMessage('error', 'network_error', '网络错误：连接失败或中断，请稍后重试', 1, targetChatId);
         message.error('发生错误，请重试');
         setLoading(false);
       },
       onComplete: () => {
+        // 完成时清理超时定时器
+        if (streamTimeoutRef.current) {
+          clearTimeout(streamTimeoutRef.current);
+          streamTimeoutRef.current = null;
+        }
         setLoading(false);
       }
     });
+    
+    // 启动初始超时计时器（等待首个数据片段）
+    setupStreamTimeout();
   };
 
   const handleNewChat = () => {
@@ -314,7 +360,7 @@ const AutoAgentPage: React.FC = () => {
           >
             {aiAgents.map((agent) => (
               <Option key={agent.id} value={agent.id}>
-                {agent.name}
+                {agent.agentName}
               </Option>
             ))}
             </Select>

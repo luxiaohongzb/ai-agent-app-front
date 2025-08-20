@@ -4,424 +4,278 @@ import {
   Table,
   Button,
   Space,
-  Modal,
   Form,
   Input,
   Select,
-  Switch,
   message,
-  Popconfirm,
   Tag,
   Typography,
   Row,
   Col,
   Pagination,
+  DatePicker,
 } from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  queryAgentClientList,
-  addAgentClient,
-  updateAgentClient,
-  deleteAgentClient,
-  queryAgentClientById,
-  queryAllAgentClient,
-  queryAgentClientByAgentId,
-  queryAgentClientByClientId,
-  AgentClientParams,
-  AgentClientQueryParams,
+  queryClientConfigList,
+  ClientConfigQueryParams,
 } from '../../services/adminService';
 
 const { Title } = Typography;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
-interface AgentClient {
+interface ClientConfigRecord {
   id: number;
-  agentId: number;
-  clientId: number;
+  sourceType: string;
+  sourceId: string;
+  targetType: string;
+  targetId: string;
+  extParam: string;
   status: number;
   createTime: string;
   updateTime: string;
-  total?: number;
-  pages?: number;
 }
 
-const AgentClientManagePage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingAgentClient, setEditingAgentClient] = useState<AgentClient | null>(null);
-  const [agentClients, setAgentClients] = useState<AgentClient[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [searchAgentId, setSearchAgentId] = useState('');
-  const [searchClientId, setSearchClientId] = useState('');
-  const [form] = Form.useForm();
+// 工具函数：格式化日期
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString('zh-CN');
+};
 
-  // 加载智能体客户端关联列表
-  const loadAgentClientList = async (page = currentPage, agentId = searchAgentId, clientId = searchClientId) => {
+const AgentClientManagePage: React.FC = () => {
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<ClientConfigRecord[]>([]);
+  const [pageNum, setPageNum] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [pages, setPages] = useState<number>(1);
+
+  // 获取数据的接口调用
+  const fetchData = async (params: Partial<ClientConfigQueryParams> = {}) => {
     setLoading(true);
     try {
-      const params: AgentClientQueryParams = {
-        pageNum: page,
+      const requestParams: ClientConfigQueryParams = {
+        pageNum,
         pageSize,
+        ...params,
       };
-      
-      // 添加搜索条件
-      if (agentId) {
-        params.agentId = parseInt(agentId);
+
+      const response = await queryClientConfigList(requestParams);
+      if (response && response.list) {
+        setData(response.list);
+        setTotal(response.total || 0);
+        setPages(response.pages || 1);
+        setPageNum(response.pageNum || 1);
+        setPageSize(response.pageSize || 10);
+      } else {
+        setData([]);
+        setTotal(0);
+        setPages(1);
       }
-      if (clientId) {
-        params.clientId = parseInt(clientId);
-      }
-      
-      const response = await queryAgentClientList(params);
-      setAgentClients(response.list || []);
-      setTotal(response.total || 0);
     } catch (error) {
-      console.error('加载智能体客户端关联列表失败:', error);
-      message.error('加载智能体客户端关联列表失败');
-      setAgentClients([]);
+      console.error('查询失败:', error);
+      message.error('查询失败');
+      setData([]);
       setTotal(0);
+      setPages(1);
     } finally {
       setLoading(false);
     }
   };
 
-  // 加载所有智能体客户端关联
-  const loadAllAgentClient = async () => {
-    try {
-      const response = await queryAllAgentClient();
-      setAgentClients(response.list || []);
-      setTotal(response.total || 0);
-    } catch (error) {
-      console.error('加载所有智能体客户端关联失败:', error);
-      message.error('加载所有智能体客户端关联失败');
-    }
-  };
-
-  // 根据智能体ID查询关联
-  const loadAgentClientByAgentId = async (agentId: number) => {
-    try {
-      const response = await queryAgentClientByAgentId(agentId);
-      setAgentClients(response || []);
-      setTotal(response.total || 0);
-    } catch (error) {
-      console.error('根据智能体ID查询关联失败:', error);
-      message.error('根据智能体ID查询关联失败');
-    }
-  };
-
-  // 根据客户端ID查询关联
-  const loadAgentClientByClientId = async (clientId: number) => {
-    try {
-      const response = await queryAgentClientByClientId(clientId);
-      setAgentClients(response.list || []);
-      setTotal(response.total || 0);
-    } catch (error) {
-      console.error('根据客户端ID查询关联失败:', error);
-      message.error('根据客户端ID查询关联失败');
-    }
-  };
-
-  // 初始化加载
+  // 初始化载入数据
   useEffect(() => {
-    loadAgentClientList();
+    fetchData({ orderBy: 'id desc' });
   }, []);
 
-  // 搜索
-  const handleSearch = () => {
-    setCurrentPage(1);
-    loadAgentClientList(1, searchAgentId, searchClientId);
-  };
+  const handleSearch = async () => {
+    const values = await form.validateFields().catch(() => ({}));
+    const { createTimeRange, ...restValues } = values;
 
-  // 分页变化
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    loadAgentClientList(page, searchAgentId, searchClientId);
-  };
+    let createTimeStart: string | undefined;
+    let createTimeEnd: string | undefined;
 
-  // 显示新增/编辑模态框
-  const showModal = (agentClient?: AgentClient) => {
-    setEditingAgentClient(agentClient || null);
-    setModalVisible(true);
-    if (agentClient) {
-      form.setFieldsValue({
-        agentId: agentClient.agentId,
-        clientId: agentClient.clientId,
-        status: agentClient.status === 1,
-      });
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ status: true });
+    if (Array.isArray(createTimeRange) && createTimeRange.length === 2) {
+      createTimeStart = createTimeRange[0]?.format('YYYY-MM-DD HH:mm:ss');
+      createTimeEnd = createTimeRange[1]?.format('YYYY-MM-DD HH:mm:ss');
     }
+
+    const searchParams: Partial<ClientConfigQueryParams> = {
+      ...restValues,
+      createTimeStart,
+      createTimeEnd,
+      orderBy: restValues.orderBy || 'id desc',
+      pageNum: 1,
+      pageSize,
+    };
+
+    setPageNum(1);
+    await fetchData(searchParams);
   };
 
-  // 编辑智能体客户端关联
-  const handleEdit = async (id: number) => {
-    try {
-      const response = await queryAgentClientById(id);
-      if (response) {
-        showModal(response);
-      }
-    } catch (error) {
-      console.error('获取智能体客户端关联信息失败:', error);
-      message.error('获取智能体客户端关联信息失败');
+  const handleReset = () => {
+    form.resetFields();
+    setPageNum(1);
+    fetchData({ orderBy: 'id desc', pageNum: 1, pageSize });
+  };
+
+  const handlePageChange = (page: number, size?: number) => {
+    const currentValues = form.getFieldsValue();
+    const { createTimeRange, ...restValues } = currentValues;
+    
+    let createTimeStart: string | undefined;
+    let createTimeEnd: string | undefined;
+
+    if (Array.isArray(createTimeRange) && createTimeRange.length === 2) {
+      createTimeStart = createTimeRange[0]?.format('YYYY-MM-DD HH:mm:ss');
+      createTimeEnd = createTimeRange[1]?.format('YYYY-MM-DD HH:mm:ss');
     }
-  };
 
-  // 保存智能体客户端关联
-  const handleSave = async () => {
-    try {
-      const values = await form.validateFields();
-      const params: AgentClientParams = {
-        agentId: values.agentId,
-        clientId: values.clientId,
-        status: values.status ? 1 : 0,
-      };
+    const pageParams: Partial<ClientConfigQueryParams> = {
+      ...restValues,
+      createTimeStart,
+      createTimeEnd,
+      pageNum: page,
+      pageSize: size || pageSize,
+    };
 
-      if (editingAgentClient) {
-        // 编辑
-        params.id = editingAgentClient.id;
-        await updateAgentClient(params);
-        message.success('更新成功');
-      } else {
-        // 新增
-        await addAgentClient(params);
-        message.success('添加成功');
-      }
-
-      setModalVisible(false);
-      loadAgentClientList();
-    } catch (error) {
-      console.error('保存智能体客户端关联失败:', error);
-      message.error('保存智能体客户端关联失败');
+    setPageNum(page);
+    if (size && size !== pageSize) {
+      setPageSize(size);
     }
+    fetchData(pageParams);
   };
 
-  // 删除智能体客户端关联
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteAgentClient(id);
-      message.success('删除成功');
-      loadAgentClientList();
-    } catch (error) {
-      console.error('删除智能体客户端关联失败:', error);
-      message.error('删除智能体客户端关联失败');
-    }
-  };
-
-  // 格式化日期
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString('zh-CN');
-  };
-
-  // 表格列定义
-  const columns: ColumnsType<AgentClient> = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
-      title: '智能体ID',
-      dataIndex: 'agentId',
-      key: 'agentId',
-      width: 120,
-    },
-    {
-      title: '客户端ID',
-      dataIndex: 'clientId',
-      key: 'clientId',
-      width: 120,
-    },
+  const columns: ColumnsType<ClientConfigRecord> = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+    { title: '源类型', dataIndex: 'sourceType', key: 'sourceType', width: 120 },
+    { title: '源ID', dataIndex: 'sourceId', key: 'sourceId', width: 120 },
+    { title: '目标类型', dataIndex: 'targetType', key: 'targetType', width: 120 },
+    { title: '目标ID', dataIndex: 'targetId', key: 'targetId', width: 120 },
+    { title: '扩展参数', dataIndex: 'extParam', key: 'extParam', width: 120 },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status) => (
+      render: (status: number) => (
         <Tag color={status === 1 ? 'success' : 'error'}>
           {status === 1 ? '启用' : '禁用'}
         </Tag>
       ),
     },
-    {
-      title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
-      width: 180,
-      render: formatDate,
-    },
-    {
-      title: '更新时间',
-      dataIndex: 'updateTime',
-      key: 'updateTime',
-      width: 180,
-      render: formatDate,
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 150,
-      render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record.id)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除这个关联吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 180, render: formatDate },
+    { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 180, render: formatDate },
   ];
 
   return (
     <div>
       <Card>
         <div style={{ marginBottom: 16 }}>
-          <Title level={4}>智能体客户端关联管理</Title>
+          <Title level={4}>客户端配置关系列表</Title>
         </div>
-        
-        {/* 搜索和操作栏 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={8}>
-            <Space>
-              <Input
-                placeholder="智能体ID"
-                value={searchAgentId}
-                onChange={(e) => setSearchAgentId(e.target.value)}
-                onPressEnter={handleSearch}
-                suffix={<SearchOutlined />}
-                style={{ width: 150 }}
-                type="number"
-              />
-              <Input
-                placeholder="客户端ID"
-                value={searchClientId}
-                onChange={(e) => setSearchClientId(e.target.value)}
-                onPressEnter={handleSearch}
-                suffix={<SearchOutlined />}
-                style={{ width: 150 }}
-                type="number"
-              />
-            </Space>
-          </Col>
-          <Col>
-            <Space>
-              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-                搜索
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSearchAgentId('');
-                  setSearchClientId('');
-                  setCurrentPage(1);
-                  loadAgentClientList(1, '', '');
-                }}
-              >
-                重置
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => showModal()}>
-                新增关联
-              </Button>
-              <Button onClick={loadAllAgentClient}>
-                查看所有
-              </Button>
-            </Space>
-          </Col>
-        </Row>
+
+        {/* 动态查询表单 */}
+        <Form form={form} layout="inline" onFinish={handleSearch} style={{ marginBottom: 12 }}>
+          <Row gutter={12} style={{ width: '100%' }}>
+            <Col>
+              <Form.Item name="id" label="ID">
+                <Input placeholder="= 精确匹配" style={{ width: 140 }} />
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="status" label="状态">
+                <Select allowClear placeholder="全部" style={{ width: 120 }}>
+                  <Option value={1}>启用</Option>
+                  <Option value={0}>禁用</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="sourceType" label="源类型">
+                <Select allowClear placeholder="选择" style={{ width: 140 }}>
+                  <Option value="client">client</Option>
+                  <Option value="model">model</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="sourceId" label="源ID">
+                <Input placeholder="支持包含匹配" style={{ width: 160 }} />
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="targetType" label="目标类型">
+                <Select allowClear placeholder="选择" style={{ width: 140 }}>
+                  <Option value="advisor">advisor</Option>
+                  <Option value="prompt">prompt</Option>
+                  <Option value="model">model</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="targetId" label="目标ID">
+                <Input placeholder="支持包含匹配" style={{ width: 160 }} />
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="createTimeRange" label="创建时间">
+                <RangePicker showTime style={{ width: 280 }} />
+              </Form.Item>
+            </Col>
+
+            <Col>
+              <Form.Item name="orderBy" label="排序">
+                <Input placeholder="如: id desc" style={{ width: 160 }} />
+              </Form.Item>
+            </Col>
+
+            <Col flex="auto">
+              <Space>
+                <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>搜索</Button>
+                <Button onClick={handleReset} icon={<ReloadOutlined />}>重置</Button>
+              </Space>
+            </Col>
+          </Row>
+        </Form>
 
         {/* 表格 */}
         <Table
           columns={columns}
-          dataSource={agentClients}
+          dataSource={data}
           rowKey="id"
           loading={loading}
           pagination={false}
-          scroll={{ x: 800 }}
+          scroll={{ x: 1000 }}
         />
 
         {/* 分页 */}
         {total > 0 && (
           <div style={{ marginTop: 16, textAlign: 'right' }}>
             <Pagination
-              current={currentPage}
+              current={pageNum}
               pageSize={pageSize}
               total={total}
+              showSizeChanger
               onChange={handlePageChange}
-              showSizeChanger={false}
+              onShowSizeChange={handlePageChange}
               showQuickJumper
-              showTotal={(total, range) => `第 ${range[0]}-${range[1]} 条/共 ${total} 条`}
+              showTotal={(t, range) => `第 ${range[0]}-${range[1]} 条/共 ${t} 条（共 ${pages} 页）`}
             />
           </div>
         )}
       </Card>
-
-      {/* 新增/编辑模态框 */}
-      <Modal
-        title={editingAgentClient ? '编辑智能体客户端关联' : '新增智能体客户端关联'}
-        open={modalVisible}
-        onOk={handleSave}
-        onCancel={() => setModalVisible(false)}
-        destroyOnClose
-        width={600}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ status: true }}
-        >
-          <Form.Item
-            name="agentId"
-            label="智能体ID"
-            rules={[{ required: true, message: '请输入智能体ID' }]}
-          >
-            <Input type="number" placeholder="请输入智能体ID" />
-          </Form.Item>
-          
-          <Form.Item
-            name="clientId"
-            label="客户端ID"
-            rules={[{ required: true, message: '请输入客户端ID' }]}
-          >
-            <Input type="number" placeholder="请输入客户端ID" />
-          </Form.Item>
-          
-          <Form.Item
-            name="status"
-            label="状态"
-            valuePropName="checked"
-          >
-            <Switch checkedChildren="启用" unCheckedChildren="禁用" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

@@ -52,7 +52,7 @@ const UploadPage: React.FC = () => {
       const formData = new FormData();
       formData.append('name', values.name);
       if (values.description) {
-        formData.append('description', values.description);
+        formData.append('tag', values.description);
       }
       
       // 添加文件
@@ -62,7 +62,7 @@ const UploadPage: React.FC = () => {
         }
       });
 
-      const response = await apiClient.post('/ai/admin/rag/upload', formData, {
+      const response = await apiClient.post('/agent/file/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -153,14 +153,14 @@ const UploadPage: React.FC = () => {
       case 'error':
         return '文件上传失败，请重试';
       default:
-        return '添加知识文件到系统';
+        return '知识库文件上传';
     }
   };
 
   return (
 //    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-   <div className="w-full flex items-center justify-center px-0 py-4 md:py-6">
-       <Card className="w-full max-w-2xl shadow-lg relative">
+   <div className="w-full p-4 md:p-6">
+       <Card className="max-w-2xl w-full shadow-lg relative mx-auto">
         {/* 加载遮罩 */}
         {uploading && (
           <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg z-10">

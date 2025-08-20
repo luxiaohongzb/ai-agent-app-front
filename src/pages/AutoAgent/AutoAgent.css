@@ -454,7 +454,7 @@
 .auto-agent-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 96px); /* 固定为接近视口的高度，避免超出画面 */
+  height: 100%; /* 占满父容器高度（由 MainLayout 提供） */
   background-color: #f7f8fa;
   color: #333;
   overflow: hidden; /* 防止整体滚动 */
@@ -688,6 +688,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap; /* 移动端允许换行 */
 }
 
 .header-actions .max-steps span {
@@ -695,11 +696,147 @@
   font-size: 12px;
 }
 
+/* 移动端适配 */
 @media (max-width: 1024px) {
   .sub-title { display: none; }
   .prompt-case-select { width: 180px; }
+  
+  .header {
+    padding: 0 16px;
+    height: 56px; /* 移动端头部高度减小 */
+  }
+  
+  .logo-text {
+    font-size: 20px; /* 移动端字体减小 */
+  }
+  
+  .main-content {
+    padding: 12px 16px; /* 移动端减少内边距 */
+    gap: 12px;
+  }
+  
+  .footer {
+    padding: 12px 16px; /* 移动端减少内边距 */
+  }
 }
 
 @media (max-width: 768px) {
   .prompt-case-select { display: none; }
+  
+  /* 移动端纵向排列 */
+  .main-content {
+    grid-template-columns: 1fr; /* 单列布局 */
+    grid-template-rows: auto 1fr; /* 思考过程区域自适应，结果区域占剩余空间 */
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .logo-title {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  
+  .agent-select,
+  .prompt-case-select {
+    width: 140px; /* 移动端下拉框变窄 */
+  }
+  
+  .toolbar-item.max-steps {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .footer {
+    padding: 8px 12px;
+  }
+  
+  .input-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .input-area {
+    width: 100%;
+  }
+  
+  .input-box {
+    flex: 1;
+  }
+  
+  .send-button {
+    height: 40px; /* 移动端按钮高度减小 */
+    padding: 0 16px;
+  }
+  
+  .input-box .ant-input {
+    height: 40px; /* 移动端输入框高度减小 */
+    line-height: 40px;
+  }
+  
+  /* 移动端消息列表内边距优化 */
+  .message-list {
+    padding: 12px;
+  }
+  
+  .column-header {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .toolbar-item {
+    justify-content: space-between;
+  }
+  
+  .agent-select,
+  .prompt-case-select {
+    width: 100%;
+  }
+  
+  .logo-text {
+    font-size: 18px;
+  }
+  
+  .status-indicator {
+    width: 6px;
+    height: 6px;
+    margin: 0 8px;
+  }
+  
+  .main-content {
+    padding: 6px 8px;
+  }
+  
+  .footer {
+    padding: 6px 8px;
+  }
+  
+  .message-list {
+    padding: 8px;
+  }
 }

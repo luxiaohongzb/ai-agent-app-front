@@ -14,6 +14,7 @@ import ChatPage from './pages/Chat/ChatPage';
 import LoginPage from './pages/Auth/LoginPage';
 import AutoAgentLayout from './pages/AutoAgent/AutoAgentLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AgentDetailFullPage from './pages/Admin/AgentDetailFullPage';
 
 // 创建QueryClient实例
 const queryClient = new QueryClient({
@@ -104,12 +105,16 @@ function AppContent() {
               {/* 受保护的路由 */}
               <Route path="/" element={
                 <ProtectedRoute>
-                  <ChatPage />
+                  <MainLayout>
+                    <ChatPage />
+                  </MainLayout>
                 </ProtectedRoute>
               } />
               <Route path="/chat" element={
                 <ProtectedRoute>
-                  <ChatPage />
+                  <MainLayout>
+                    <ChatPage />
+                  </MainLayout>
                 </ProtectedRoute>
               } />
               <Route path="/upload" element={
@@ -129,6 +134,11 @@ function AppContent() {
               <Route path="/admin" element={
                 <ProtectedRoute>
                   <AdminPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/agent/:id" element={
+                <ProtectedRoute>
+                  <AgentDetailFullPage />
                 </ProtectedRoute>
               } />
               <Route path="/autoagent" element={

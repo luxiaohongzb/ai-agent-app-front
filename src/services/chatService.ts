@@ -1,11 +1,44 @@
 import apiClient from './api';
 import { AIAgent, KnowledgeBase, PromptTemplate } from '../types';
 
-// 获取AI Agent列表
-export const getAIAgents = async (): Promise<AIAgent[]> => {
+// 通用的 SSE 数据解析：兼容多种后端返回结构，提取文本内容
+export const parseSSEDataPayload = (raw: string): string => {
+  if (!raw) return '';
+  if (raw === '[DONE]') return '';
   try {
-    const response = await apiClient.post('/ai/admin/agent/queryAllValidAgentOrder');
-    return response.data || [];
+    const data = JSON.parse(raw);
+    // OpenAI 样式
+    if (data?.choices?.[0]?.delta?.content) return String(data.choices[0].delta.content);
+    if (data?.choices?.[0]?.message?.content) return String(data.choices[0].message.content);
+    // 常见后端样式
+    if (data?.result?.output?.text) return String(data.result.output.text);
+    if (Array.isArray(data?.results) && data.results[0]?.output?.text) return String(data.results[0].output.text);
+    if (typeof data?.content === 'string') return data.content;
+    if (typeof data?.text === 'string') return data.text;
+    if (data?.delta?.content) return String(data.delta.content);
+    // 兜底：将对象的 content/text 序列化
+    if (data?.content) return JSON.stringify(data.content);
+    return '';
+  } catch {
+    // 非 JSON，直接忽略
+    return '';
+  }
+};
+
+// 获取AI Agent列表（增加分页参数，提供默认值）
+export const getAIAgents = async (
+  pageNum: number = 1,
+  pageSize: number = 100,
+  orderBy: string = 'id desc'
+): Promise<AIAgent[]> => {
+  try {
+    const response = await apiClient.post('/ai/admin/agent/queryAiAgentList', {
+      pageNum,
+      pageSize,
+      orderBy,
+    });
+    // 统一从分页结构中取 list，兼容旧结构
+    return (response && (response.list || response.data)) || [];
   } catch (error) {
     console.error('Failed to fetch AI agents:', error);
     return [];
@@ -111,26 +144,9 @@ export const createChatStream = (params: {
         for (const line of lines) {
           try {
             if (line.startsWith('data: ')) {
-              const jsonData = JSON.parse(line.slice(6));
-              // 处理 OpenAI 格式的响应
-              if (
-                jsonData.choices &&
-                jsonData.choices[0] &&
-                jsonData.choices[0].delta
-              ) {
-                const content = jsonData.choices[0].delta.content;
-                if (content) {
-                  onMessage(content);
-                }
-              }
-              // 处理包含 completed 字段的 JSON 格式
-              else if (jsonData.completed !== undefined && jsonData.content) {
-                onMessage(JSON.stringify(jsonData));
-              }
-              // 处理其他 JSON 格式
-              else if (jsonData.content) {
-                onMessage(JSON.stringify(jsonData));
-              }
+              const payload = line.slice(6);
+              const content = parseSSEDataPayload(payload);
+              if (content) onMessage(content);
             }
           } catch (error) {
             if ((error as any).name === 'AbortError' || controller.signal.aborted) {

@@ -127,8 +127,8 @@ const GitPage: React.FC = () => {
 
   return (
 //    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-   <div className="w-full flex items-center justify-center px-0 py-4 md:py-6">
-       <Card className="w-full max-w-2xl shadow-lg relative">
+   <div className="w-full p-4 md:p-6">
+       <Card className="max-w-2xl w-full shadow-lg relative mx-auto">
         {/* 加载遮罩 */}
         {processing && (
           <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg z-10">

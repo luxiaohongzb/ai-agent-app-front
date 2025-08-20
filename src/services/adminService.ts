@@ -62,6 +62,19 @@ export interface AgentClientQueryParams extends PaginationParams {
   clientId?: number;
 }
 
+// 新增：客户端配置关系 查询参数
+export interface ClientConfigQueryParams extends PaginationParams {
+  orderBy?: string;
+  id?: number | string;
+  status?: number;
+  createTimeStart?: string;
+  createTimeEnd?: string;
+  sourceType?: string; // model | client
+  sourceId?: string;
+  targetType?: string; // model | client | advisor | prompt
+  targetId?: string;
+}
+
 // RAG订单相关接口
 export interface RagOrderParams {
   orderId: string;
@@ -223,13 +236,18 @@ export const queryAllAgentClient = async () => {
 };
 
 // 根据智能体ID查询关联
-export const queryAgentClientByAgentId = async (agentId: number) => {
-  return await apiClient.post('/ai/admin/agent/client/queryAgentClientByAgentId', { agentId });
+export const queryAgentClientByAgentId = async (agentId: String) => {
+  return await apiClient.get('/ai/admin/client/queryClientByAgentId', { params: { agentId } });
 };
 
 // 根据客户端ID查询关联
 export const queryAgentClientByClientId = async (clientId: number) => {
   return await apiClient.post('/ai/admin/agent/client/queryAgentClientByClientId', { clientId });
+};
+
+// 新增：客户端配置关系列表（GET）
+export const queryClientConfigList = async (params: ClientConfigQueryParams) => {
+  return await apiClient.get('/ai/admin/client/queryClientConfigList', { params });
 };
 
 // 添加智能体客户端关联
@@ -481,4 +499,19 @@ export const queryClientApiById = async (id: number) => {
 // 根据API ID查询API配置
 export const queryClientApiByApiId = async (apiId: string) => {
   return await apiClient.get('/ai/admin/client/api/queryClientApiByApiId', { params: { apiId } });
+};
+
+// 根据客户端ID查询API配置列表
+export const queryApiByClientId = async (clientId: string) => {
+  return await apiClient.get('/ai/admin/client/api/queryApiByClientId', { params: { clientId } });
+};
+
+// 根据客户端ID查询模型列表
+export const queryModelByClientId = async (clientId: string) => {
+  return await apiClient.get('/ai/admin/client/model/queryClientModelByClientId', { params: { clientId } });
+};
+
+// 根据客户端ID查询提示词列表
+export const queryPromptByClientId = async (clientId: string) => {
+  return await apiClient.get('/ai/admin/client/prompt/queryPromptByClientId', { params: { clientId } });
 };

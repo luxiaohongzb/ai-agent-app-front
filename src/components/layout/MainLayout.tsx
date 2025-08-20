@@ -27,9 +27,10 @@ const GlassContainer = styled(Box)(({ theme }) => ({
 
 interface MainLayoutProps {
   children?: React.ReactNode;
+  contentScrollable?: boolean;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children, contentScrollable = true }) => {
   const { theme, toggleTheme } = useThemeStore();
   const { logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useStore();
@@ -169,7 +170,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             {/* 如果有 children，渲染 children，否则渲染默认的聊天区域 */}
             {children ? (
-              <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
+              <Box sx={{ flex: 1, overflow: contentScrollable ? 'auto' : 'hidden', p: contentScrollable ? { xs: 2, md: 3 } : 0 }}>
                 {children}
               </Box>
             ) : (

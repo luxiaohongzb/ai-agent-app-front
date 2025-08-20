@@ -4,7 +4,7 @@ import AutoAgentPage from './AutoAgentPage';
 
 const AutoAgentLayout: React.FC = () => {
   return (
-    <MainLayout>
+    <MainLayout contentScrollable={false}>
       <AutoAgentPage />
     </MainLayout>
   );

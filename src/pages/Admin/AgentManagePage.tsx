@@ -15,10 +15,8 @@ import {
   Typography,
   Row,
   Col,
-  Pagination,
-  Drawer,
+  Pagination
 } from 'antd';
-import AgentDetailPage from './AgentDetailPage';
 import {
   PlusOutlined,
   EditOutlined,
@@ -37,13 +35,15 @@ import {
   AgentParams,
   AgentQueryParams,
 } from '../../services/adminService';
+import { useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
 interface Agent {
-  id: number;
+  id:number,
+  agentId: number;
   agentName: string;
   description?: string;
   status: number;
@@ -63,8 +63,8 @@ const AgentManagePage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [searchName, setSearchName] = useState('');
   const [form] = Form.useForm();
-  const [detailVisible, setDetailVisible] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+  // 详情改为页面跳转，无需本地抽屉状态
+  const navigate = useNavigate();
 
   // 加载智能体列表
   const loadAgentList = async (page = currentPage, name = searchName) => {
@@ -203,8 +203,8 @@ const AgentManagePage: React.FC = () => {
   const columns: ColumnsType<Agent> = [
     {
       title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      dataIndex: 'agentId',
+      key: 'agentId',
       width: 80,
     },
     {
@@ -254,10 +254,7 @@ const AgentManagePage: React.FC = () => {
           <Button
             type="link"
             size="small"
-            onClick={() => {
-              setSelectedAgentId(record.id);
-              setDetailVisible(true);
-            }}
+            onClick={() => navigate(`/admin/agent/${record.agentId}`)}
           >
             详情
           </Button>
@@ -397,20 +394,7 @@ const AgentManagePage: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* 智能体详情抽屉 */}
-      <Drawer
-        title="智能体详情"
-        placement="right"
-        width={800}
-        onClose={() => {
-          setDetailVisible(false);
-          setSelectedAgentId(null);
-        }}
-        open={detailVisible}
-        destroyOnClose
-      >
-        {selectedAgentId && <AgentDetailPage agentId={selectedAgentId} />}
-      </Drawer>
+      {/* 详情以全屏页面展示：/admin/agent/:id */}
     </div>
   );
 };
