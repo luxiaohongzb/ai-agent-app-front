@@ -17,22 +17,22 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   BranchesOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import apiClient from '../../services/api';
 
 const { Title, Text, Paragraph } = Typography;
 
 interface GitFormData {
-  name: string;
-  url: string;
+  userName: string;
+  repoUrl: string;
   branch?: string;
-  description?: string;
+  token?: string;
 }
 
 const GitPage: React.FC = () => {
   const [form] = Form.useForm();
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -40,37 +40,24 @@ const GitPage: React.FC = () => {
   const handleSubmit = async (values: GitFormData) => {
     setProcessing(true);
     setStatus('processing');
-    setProgress(0);
     setErrorMessage('');
 
     try {
-      // 模拟进度更新
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.random() * 10;
-        });
-      }, 500);
-
-      const response = await apiClient.post('/ai/admin/git/parse', {
-        name: values.name,
-        url: values.url,
-        branch: values.branch || 'main',
-        description: values.description,
+      const response = await apiClient.post('/agent/rag/analyzeGitRepository', null, {
+        params: {
+          repoUrl: values.repoUrl,
+          userName: values.userName,
+          token: values.token || '',
+          branch: values.branch || 'master'
+        }
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      if (response.success) {
+      if (response ==  "上传成功") {
         setStatus('success');
         message.success('Git仓库解析成功！');
         form.resetFields();
       } else {
-        throw new Error(response.message || '解析失败');
+        throw new Error(response || '解析失败');
       }
     } catch (error: any) {
       console.error('Git parse error:', error);
@@ -131,30 +118,27 @@ const GitPage: React.FC = () => {
        <Card className="max-w-2xl w-full shadow-lg relative mx-auto">
         {/* 加载遮罩 */}
         {processing && (
-          <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg z-10">
-            <Spin size="large" className="mb-4" />
-            <Text className="text-gray-600 mb-4">{getStatusText()}</Text>
-            <Progress
-              percent={Math.round(progress)}
-              status={status === 'error' ? 'exception' : 'active'}
-              className="w-64"
-            />
-            <Text className="text-sm text-gray-500 mt-2">
-              正在克隆和分析代码结构...
-            </Text>
+          <div className="absolute inset-0 bg-white bg-opacity-95 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-10">
+            <div className="p-8 rounded-lg bg-white/50 shadow-lg flex flex-col items-center">
+              <Spin size="large" className="mb-6" />
+              <Text className="text-lg font-medium text-gray-700 mb-2">{getStatusText()}</Text>
+              <Text className="text-sm text-gray-500">
+                正在解析Git仓库，请稍候...
+              </Text>
+            </div>
           </div>
         )}
 
-        <div className="text-center mb-6">
-          <Space direction="vertical" size="small">
+        <div className="flex flex-col items-center justify-center mb-8">
+          <div className="text-5xl mb-4 flex justify-center items-center h-20 w-20 rounded-full bg-blue-50 text-blue-500">
             {getStatusIcon()}
-            <Title level={2} className="mb-0">
-              {getStatusText()}
-            </Title>
-            <Paragraph className="text-gray-600 mb-0">
-              输入Git仓库地址，系统将自动解析代码结构并生成知识库
-            </Paragraph>
-          </Space>
+          </div>
+          <Title level={2} className="mb-4 !text-2xl font-bold text-center">
+            {getStatusText()}
+          </Title>
+          <Paragraph className="text-gray-600 mb-0 max-w-md text-center">
+            输入Git仓库地址，系统将自动解析代码结构并生成知识库
+          </Paragraph>
         </div>
 
         {/* 错误提示 */}
@@ -164,7 +148,12 @@ const GitPage: React.FC = () => {
             description={errorMessage}
             type="error"
             showIcon
-            className="mb-4"
+            className="mb-6 shadow-sm"
+            action={
+              <Button size="small" type="text" danger onClick={() => setStatus('idle')}>
+                关闭
+              </Button>
+            }
           />
         )}
 
@@ -175,7 +164,12 @@ const GitPage: React.FC = () => {
             description="Git仓库已成功解析并添加到知识库中，您可以在聊天中使用这些知识。"
             type="success"
             showIcon
-            className="mb-4"
+            className="mb-6 shadow-sm"
+            action={
+              <Button size="small" type="text" onClick={() => setStatus('idle')}>
+                关闭
+              </Button>
+            }
           />
         )}
 
@@ -186,22 +180,22 @@ const GitPage: React.FC = () => {
           disabled={processing}
         >
           <Form.Item
-            label="项目名称"
-            name="name"
+            label="用户名"
+            name="userName"
             rules={[
-              { required: true, message: '请输入项目名称' },
-              { max: 50, message: '项目名称不能超过50个字符' },
+              { required: true, message: '请输入用户名' },
             ]}
           >
             <Input
-              placeholder="输入项目名称"
+              placeholder="用户名 "
               prefix={<GithubOutlined />}
             />
           </Form.Item>
 
+
           <Form.Item
             label="Git仓库地址"
-            name="url"
+            name="repoUrl"
             rules={[
               { required: true, message: '请输入Git仓库地址' },
               { validator: validateGitUrl },
@@ -216,7 +210,7 @@ const GitPage: React.FC = () => {
           <Form.Item
             label="分支名称（可选）"
             name="branch"
-            initialValue="main"
+            initialValue="master"
           >
             <Input
               placeholder="main"
@@ -225,17 +219,13 @@ const GitPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="项目描述（可选）"
-            name="description"
-            rules={[
-              { max: 200, message: '描述不能超过200个字符' },
-            ]}
+            label="访问令牌（可选）"
+            name="token"
+            tooltip="私有仓库需要提供访问令牌"
           >
-            <Input.TextArea
-              placeholder="输入项目描述"
-              rows={3}
-              showCount
-              maxLength={200}
+            <Input.Password
+              placeholder="输入访问令牌"
+              prefix={<LinkOutlined />}
             />
           </Form.Item>
 
@@ -267,10 +257,10 @@ const GitPage: React.FC = () => {
             使用说明
           </Title>
           <ul className="text-sm text-blue-600 space-y-1">
-            <li>• 支持 GitHub、GitLab、Gitee、Bitbucket 等主流Git平台</li>
-            <li>• 系统将自动分析代码结构、README、注释等内容</li>
-            <li>• 解析完成后可在聊天中选择对应知识库进行代码相关问答</li>
-            <li>• 建议使用公开仓库，私有仓库需要配置访问权限</li>
+            <li> 支持 GitHub、GitLab、Gitee、Bitbucket 等主流Git平台</li>
+            <li> 系统将自动分析代码结构、README、注释等内容</li>
+            <li> 解析完成后可在聊天中选择对应知识库进行代码相关问答</li>
+            <li> 建议使用公开仓库，私有仓库需要配置访问权限</li>
           </ul>
         </Card>
       </Card>

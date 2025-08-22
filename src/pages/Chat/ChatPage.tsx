@@ -36,7 +36,6 @@ const ChatPage: React.FC = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const { Title, Paragraph } = Typography;
-  const { Option } = Select;
 
   // 将 store 中的消息映射为通用的 ChatMessage，供 MessageBubble 使用
   const toBubbleMessage = (m: LocalMessage): ChatMessage => ({
@@ -58,8 +57,9 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const list = await getKnowledgeBases();
-        setKnowledgeBases(Array.isArray(list) ? list : []);
+        const response = await getKnowledgeBases();
+        setKnowledgeBases(Array.isArray(response) ? response : []);
+        console.log(response)
       } catch (e) {
         console.error('Failed to load knowledge bases', e);
       }
@@ -267,14 +267,11 @@ const ChatPage: React.FC = () => {
               onChange={(val) => setSelectedRagId(val || undefined)}
               style={{ width: 260 }}
               size="small"
-              options={undefined}
-            >
-              {knowledgeBases.map((kb: any) => (
-                <Option key={String(kb.id)} value={String(kb.id)}>
-                  {kb.ragName || kb.name || `RAG-${kb.id}`}
-                </Option>
-              ))}
-            </Select>
+              options={knowledgeBases.map((kb: any) => ({
+                value: kb.ragId || '',
+                label: kb.ragName || '未命名知识库'
+              }))}
+            />
           </div>
         </div>
 

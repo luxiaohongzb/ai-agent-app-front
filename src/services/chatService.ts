@@ -46,13 +46,13 @@ export const getAIAgents = async (
 };
 
 // 获取知识库列表
-export const getKnowledgeBases = async (): Promise<KnowledgeBase[]> => {
+export const getKnowledgeBases = async () => {
   try {
     const response = await apiClient.post('/ai/admin/rag/queryAllValidRagOrder');
-    return response.data || [];
+    return response;
   } catch (error) {
     console.error('Failed to fetch knowledge bases:', error);
-    return [];
+    return { list: [] };
   }
 };
 
