@@ -729,9 +729,15 @@
     grid-template-rows: auto 1fr; /* 思考过程区域自适应，结果区域占剩余空间 */
     gap: 8px;
     padding: 8px 12px;
+    height: calc(100vh - 120px); /* 减去头部和底部的高度 */
+    overflow-y: auto; /* 允许整体滚动 */
   }
   
   .header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #fff;
     flex-direction: column;
     align-items: flex-start;
     height: auto;
@@ -739,104 +745,228 @@
     gap: 8px;
   }
   
+  .dark .header {
+    background-color: #2a2a2a;
+  }
+  
   .header-actions {
     width: 100%;
-    justify-content: space-between;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
   
   .logo-title {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
     margin-bottom: 8px;
+  }
+  
+  .toolbar-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   
   .agent-select,
   .prompt-case-select {
-    width: 140px; /* 移动端下拉框变窄 */
+    width: 100%; /* 全宽显示，避免重叠 */
+    min-width: 0;
   }
   
   .toolbar-item.max-steps {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .toolbar-item.max-steps .ant-input-number {
+    width: 80px;
   }
   
   .footer {
-    padding: 8px 12px;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background-color: #fff;
+    padding: 12px;
+    border-top: 1px solid #e8e8e8;
+  }
+  
+  .dark .footer {
+    background-color: #2a2a2a;
+    border-top-color: #444;
   }
   
   .input-toolbar {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 8px;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 12px;
   }
   
   .input-area {
     width: 100%;
+    display: flex;
+    gap: 12px;
   }
   
   .input-box {
     flex: 1;
+    min-width: 0; /* 防止输入框溢出 */
   }
   
   .send-button {
-    height: 40px; /* 移动端按钮高度减小 */
+    height: 40px;
     padding: 0 16px;
+    white-space: nowrap; /* 防止按钮文字换行 */
   }
   
   .input-box .ant-input {
-    height: 40px; /* 移动端输入框高度减小 */
+    height: 40px;
     line-height: 40px;
+    padding: 4px 11px;
   }
   
-  /* 移动端消息列表内边距优化 */
+  /* 移动端消息列表优化 */
   .message-list {
     padding: 12px;
+    height: auto;
+    min-height: 200px;
+  }
+  
+  .content-column {
+    margin-bottom: 12px;
+    height: auto;
+    min-height: 200px;
   }
   
   .column-header {
-    padding: 8px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 12px;
     font-size: 14px;
+    background-color: #fff;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  
+  .dark .column-header {
+    background-color: #2a2a2a;
+    border-bottom-color: #444;
   }
 }
 
 @media (max-width: 480px) {
+  .auto-agent-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    padding: 8px;
+  }
+
   .header-actions {
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 8px;
   }
-  
+
   .toolbar-item {
-    justify-content: space-between;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
   }
-  
+
   .agent-select,
   .prompt-case-select {
     width: 100%;
+    min-width: 0;
   }
-  
+
+  .toolbar-item.max-steps {
+    justify-content: space-between;
+  }
+
+  .toolbar-item.max-steps .ant-input-number {
+    width: 60px;
+  }
+
   .logo-text {
-    font-size: 18px;
+    font-size: 16px;
+    line-height: 1.2;
   }
-  
+
   .status-indicator {
     width: 6px;
     height: 6px;
-    margin: 0 8px;
+    margin: 0 6px;
   }
-  
+
   .main-content {
-    padding: 6px 8px;
+    padding: 8px;
+    height: calc(100vh - 180px); /* 调整高度以适应更小的屏幕 */
   }
-  
-  .footer {
-    padding: 6px 8px;
+
+  .content-column {
+    margin-bottom: 8px;
   }
-  
+
+  .column-header {
+    padding: 8px;
+    font-size: 13px;
+  }
+
   .message-list {
     padding: 8px;
+  }
+
+  .footer {
+    padding: 8px;
+  }
+
+  .input-area {
+    gap: 8px;
+  }
+
+  .input-box .ant-input {
+    font-size: 14px;
+    padding: 4px 8px;
+  }
+
+  .send-button {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  /* 优化消息气泡在小屏幕上的显示 */
+  .message-bubble {
+    padding: 8px;
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  /* 优化工具栏在小屏幕上的显示 */
+  .input-toolbar {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* 确保滚动区域不会被键盘遮挡 */
+  @media (max-height: 600px) {
+    .main-content {
+      height: calc(100vh - 160px);
+    }
+
+    .message-list {
+      min-height: 150px;
+    }
   }
 }

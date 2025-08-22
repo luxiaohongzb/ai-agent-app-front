@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Button, Select, InputNumber, message, Spin, Tooltip } from 'antd';
-import { SendOutlined, RobotOutlined, UserOutlined, PlusOutlined, DeleteOutlined, LoadingOutlined, DownOutlined } from '@ant-design/icons';
+import { Input, Button, Select, InputNumber, message, Spin } from 'antd';
+import { SendOutlined, RobotOutlined, UserOutlined, PlusOutlined, DownOutlined } from '@ant-design/icons';
 import { createChatStream, getAIAgents } from '../../services/chatService';
 import './AutoAgent.css';
 import MessageBubble from '../../components/chat/MessageBubble';
@@ -25,14 +25,15 @@ const AutoAgentPage: React.FC = () => {
   const navigate = useNavigate();
   const { chatId } = useParams<{ chatId: string }>();
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [thinkingMessages, setThinkingMessages] = useState<Message[]>([]);
+  // 当前活跃聊天的消息
+  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const [currentThinkingMessages, setCurrentThinkingMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiAgentId, setAiAgentId] = useState<string>('3');
-  const [maxStep, setMaxStep] = useState<number>(3);
+  const [maxStep, setMaxStep] = useState<number>(1);
   const [sessionId, setSessionId] = useState<string>('session-' + Math.random().toString(36).substring(2, 10));
   const [aiAgents, setAiAgents] = useState<AIAgent[]>([]);
-  const [promptCase, setPromptCase] = useState<string | undefined>(undefined);
+  const [promptCase, setPromptCase] = useState<string>();
 
   const inputRef = useRef<any>(null);
   const thinkingMessagesRef = useRef<HTMLDivElement>(null);
@@ -52,45 +53,48 @@ const AutoAgentPage: React.FC = () => {
   
   // 当 chatId 变化时，加载对应的聊天
   useEffect(() => {
-   // 切换会话时，先中断旧的流
-   if (streamCancelRef.current) {
-     streamCancelRef.current.cancel();
-     streamCancelRef.current = null;
-   }
+    // 切换会话时，先中断旧的流和清理定时器
+    const cleanup = () => {
+      if (streamCancelRef.current) {
+        streamCancelRef.current.cancel();
+        streamCancelRef.current = null;
+      }
+      if (streamTimeoutRef.current) {
+        clearTimeout(streamTimeoutRef.current);
+        streamTimeoutRef.current = null;
+      }
+    };
+
+    cleanup();
+
     if (chatId) {
-      // 仅当 store 中确实存在该 chat 时才加载，避免误显示上一个会话
+      // 仅当 store 中确实存在该 chat 时才加载
       const { chats } = useStore.getState();
       const exists = chats.some(c => c.id === chatId);
       if (exists) {
         loadChat(chatId);
       } else {
-        // chatId 不存在时，清空消息
-        setMessages([]);
-        setThinkingMessages([]);
+        setCurrentMessages([]);
+        setCurrentThinkingMessages([]);
       }
     } else {
-      // 没有 chatId 时，清空消息
-      setMessages([]);
-      setThinkingMessages([]);
+      setCurrentMessages([]);
+      setCurrentThinkingMessages([]);
     }
-    return () => {
-     // 组件卸载或依赖变更时也中断流
-     if (streamCancelRef.current) {
-       streamCancelRef.current.cancel();
-       streamCancelRef.current = null;
-     }
-     // 同时清理超时定时器
-     if (streamTimeoutRef.current) {
-       clearTimeout(streamTimeoutRef.current);
-       streamTimeoutRef.current = null;
-     }
-    };
+
+    return cleanup;
   }, [chatId, loadChat]);
 
   // 当 currentChat 变化时，同步消息到本地状态
   useEffect(() => {
-    if (currentChat && currentChat.id === chatId) {
-      // 确保 currentChat 与当前 chatId 一致
+    if (!currentChat || !chatId) {
+      setCurrentMessages([]);
+      setCurrentThinkingMessages([]);
+      return;
+    }
+
+    // 只有当前聊天ID匹配时才更新UI
+    if (currentChat.id === chatId) {
       const chatMessages = (currentChat.messages || []).map(msg => ({
         id: msg.id,
         content: msg.content,
@@ -106,21 +110,17 @@ const AutoAgentPage: React.FC = () => {
         m.type === 'user' || 
         (m.type === 'ai' && m.stage && m.stage !== 'complete' && m.stage !== 'summary')
       );
-      setThinkingMessages(thinkingMsgs);
+      setCurrentThinkingMessages(thinkingMsgs);
       
       // 右侧"最终执行结果"：仅展示最终结果阶段的AI消息
       const resultMsgs = chatMessages.filter(m => 
         m.type === 'ai' && m.stage && (m.stage === 'complete' || m.stage === 'summary')
       );
-      setMessages(resultMsgs);
-    } else if (!currentChat) {
-      // 当前没有有效会话时清空
-      setMessages([]);
-      setThinkingMessages([]);
-    } else if (currentChat && currentChat.id !== chatId) {
-      // 存在 currentChat 但与路由 chatId 不一致时，清空以避免短暂显示上一个会话内容
-      setMessages([]);
-      setThinkingMessages([]);
+      setCurrentMessages(resultMsgs);
+    } else {
+      // ID不匹配时清空当前消息
+      setCurrentMessages([]);
+      setCurrentThinkingMessages([]);
     }
   }, [currentChat, chatId]);
 
@@ -130,14 +130,14 @@ const AutoAgentPage: React.FC = () => {
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
-  }, [thinkingMessages, loading]);
+  }, [currentThinkingMessages, loading]);
 
   useEffect(() => {
     const el = resultMessagesRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages, loading]);
+  }, [currentMessages, loading]);
   
   useEffect(() => {
     const fetchAIAgents = async () => {
@@ -153,9 +153,13 @@ const AutoAgentPage: React.FC = () => {
     fetchAIAgents();
   }, []);
 
+  const generateUniqueId = (prefix: string) => {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  };
+
   const addAiMessage = (stage: string, subType: string, content: string, step: number, targetChatId?: string) => {
     const aiMessage: Message = {
-      id: 'ai-' + Date.now(),
+      id: generateUniqueId('ai'),
       content,
       type: 'ai',
       timestamp: Date.now(),
@@ -164,29 +168,24 @@ const AutoAgentPage: React.FC = () => {
       step
     };
 
+    const messageToStore = {
+      content: aiMessage.content,
+      isAssistant: true,
+      stage,
+      subType,
+      step,
+      chatId: targetChatId || currentChat?.id || useStore.getState().currentChatId || undefined,
+    } as any;
+
+    // 根据消息阶段更新对应的状态
     if (stage === 'complete' || stage === 'summary') {
-      setMessages(prev => [...prev, aiMessage]);
-      // 将消息添加到 store，包含阶段信息，且显式指定 chatId
-      addMessage({
-        content: aiMessage.content,
-        isAssistant: true,
-        stage,
-        subType,
-        step,
-        chatId: targetChatId || currentChat?.id || useStore.getState().currentChatId || undefined,
-      } as any);
+      setCurrentMessages(prev => [...prev, aiMessage]);
     } else {
-      setThinkingMessages(prev => [...prev, aiMessage]);
-      // 将思考过程消息也持久化到 store，显式指定 chatId
-      addMessage({
-        content: aiMessage.content,
-        isAssistant: true,
-        stage,
-        subType,
-        step,
-        chatId: targetChatId || currentChat?.id || useStore.getState().currentChatId || undefined,
-      } as any);
+      setCurrentThinkingMessages(prev => [...prev, aiMessage]);
     }
+
+    // 将消息持久化到 store
+    addMessage(messageToStore);
   };
 
   const sendMessage = () => {
@@ -219,14 +218,14 @@ const AutoAgentPage: React.FC = () => {
     }
     
     const userMessage: Message = {
-      id: 'user-' + Date.now(),
+      id: generateUniqueId('user'),
       content: input.trim(),
       type: 'user',
       timestamp: Date.now()
     };
     
-    setMessages(prev => [...prev, userMessage]);
-    setThinkingMessages(prev => [...prev, userMessage]);
+    setCurrentMessages(prev => [...prev, userMessage]);
+    setCurrentThinkingMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
     // 发送后保持焦点在输入框，防止“输入框不见了”的错觉
@@ -304,39 +303,23 @@ const AutoAgentPage: React.FC = () => {
   };
 
   const handleNewChat = () => {
-    setMessages([]);
-    setThinkingMessages([]);
+    setCurrentMessages([]);
+    setCurrentThinkingMessages([]);
     setSessionId('session-' + Math.random().toString(36).substring(2, 10));
     const newChatId = createChat();
     if (newChatId) {
       // 添加一个初始消息作为标题
-      addMessage({
-        content: '开始一段新的对话吧',
-        isAssistant: false,
-        chatId:newChatId
-      });
+      // addMessage({
+      //   content: '开始一段新的对话吧',
+      //   isAssistant: false,
+      //   chatId:newChatId
+      // });
       // 导航到新对话页面
       navigate(`/autoagent/${newChatId}`);
       message.success('已创建新对话');
     }
   };
   
-  const handleClearAllChats = () => {
-    clearAllChats();
-    setMessages([]);
-    setThinkingMessages([]);
-    navigate('/autoagent');
-    message.success('已清空所有对话');
-  };
-
-  const handleDeleteChat = () => {
-    if (chatId) {
-      deleteChat(chatId);
-      navigate('/autoagent');
-      message.success('已删除当前对话');
-    }
-  };
-
   const handlePromptCaseChange = (value: string) => {
     setPromptCase(value);
     setInput(value);
@@ -396,7 +379,7 @@ const AutoAgentPage: React.FC = () => {
             <span>AI思考执行过程</span>
           </div>
           <div ref={thinkingMessagesRef} className="message-list custom-scrollbar">
-            {thinkingMessages.map((msg) => (
+            {currentThinkingMessages.map((msg) => (
               <MessageBubble
                 key={msg.id}
                 message={{
@@ -410,7 +393,7 @@ const AutoAgentPage: React.FC = () => {
                 }}
               />
             ))}
-            {thinkingMessages.length === 0 && !loading && (
+            {currentThinkingMessages.length === 0 && !loading && (
               <div className="empty-state">
                 <RobotOutlined />
                 <p>AI将在这里展示思考过程</p>
@@ -426,7 +409,7 @@ const AutoAgentPage: React.FC = () => {
             <span>最终执行结果</span>
           </div>
           <div ref={resultMessagesRef} className="message-list custom-scrollbar">
-            {messages.map((msg) => (
+            {currentMessages.map((msg) => (
               <MessageBubble
                 key={msg.id}
                 message={{
@@ -440,7 +423,7 @@ const AutoAgentPage: React.FC = () => {
                 }}
               />
             ))}
-            {messages.length === 0 && !loading && (
+            {currentMessages.length === 0 && !loading && (
               <div className="empty-state">
                 <RobotOutlined />
                 <p>AI将在这里展示最终结果</p>
